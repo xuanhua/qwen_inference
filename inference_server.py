@@ -5,8 +5,10 @@ from typing import (
     Union
 )
 
-from transformers import AutoTokenizer, AutoModelForCausalLM
+import os
 import time
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
 
 QWEN_72B_INT4_PATH = "/data/hg_models/Qwen-72B-Chat-Int4"
 QWEN_72B_INT8_PATH = "/data/hg_models/Qwen-72B-Chat-Int8"
@@ -78,6 +80,7 @@ class Qwen72bModel:
         ).eval()
     
     def chat(self, text: str):
+        print(f">>>>>>>>>>>>{__file__}: axu_ts={time.time()}")
         response, history = self._model.chat(self._tokenizer, text, history=None)
         return response, history
     
@@ -122,6 +125,8 @@ if __name__ == "__main__":
     """
     start a flask server and wait for user input, then generate response.
     """
+    # If you only want to use 1 gpu (24GB vram available) for inference( 1.8b, 7b model could work under such circumstances)
+    #os.environ["CUDA_VISIBLE_DEVICES"] = "1"   
     args = set_args()
     glob_model = Qwen72bModel(args)
     app.run(port=5000, debug=True, use_reloader=False)

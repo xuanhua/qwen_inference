@@ -19,8 +19,8 @@
       "program": "${workspaceFolder}/inference_server.py",
       "console": "integratedTerminal",
       "args":[
-        "--quant_type",
-        "int4"
+        "--model_type",
+        "1.8b"
       ],
       "justMyCode": false
     },
