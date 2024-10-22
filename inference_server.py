@@ -7,45 +7,13 @@ from typing import (
 
 import os
 import time
+import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
-
+from accelerate import infer_auto_device_map
 
 QWEN_72B_INT4_PATH = "/data/hg_models/Qwen-72B-Chat-Int4"
 QWEN_72B_INT8_PATH = "/data/hg_models/Qwen-72B-Chat-Int8"
 QWEN_1_8B_PATH = "/data/hg_models/Qwen-1_8B-Chat"
-
-def demo_code():
-    model_path = "/data/hg_models/Qwen-72B-Chat-Int8"
-
-    # Note: The default behavior now has injection attack prevention off.
-    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        device_map="auto",
-        trust_remote_code=True
-    ).eval()
-
-
-    start = time.time()
-    response, history = model.chat(tokenizer, "你好", history=None)
-    print(response)
-    # 你好！很高兴为你提供帮助。
-
-    # Qwen-72B-Chat现在可以通过调整系统指令（System Prompt），实现角色扮演，语言风格迁移，任务设定，行为设定等能力。
-    # Qwen-72B-Chat can realize roly playing, language style transfer, task setting, and behavior setting by system prompt.
-    response, _ = model.chat(tokenizer, "你好呀", history=None, system="请用二次元可爱语气和我说话")
-    print(response)
-    # 哎呀，你好哇！是怎么找到人家的呢？是不是被人家的魅力吸引过来的呀~(≧▽≦)/~
-
-    response, _ = model.chat(tokenizer, "My colleague works diligently", history=None, system="You will write beautiful compliments according to needs")
-    print(response)
-    # Your colleague is a shining example of dedication and hard work. Their commitment to their job is truly commendable, and it shows in the quality of their work. 
-    # They are an asset to the team, and their efforts do not go unnoticed. Keep up the great work!
-
-    end = time.time()
-
-    print(f"Total time cost is {end-start} seconds")
 
 import argparse
 def set_args():
@@ -58,6 +26,20 @@ def set_args():
                         required=True)
     args = parser.parse_args()
     return args
+
+def only_has_one_8gb_gpu():
+    """
+    Check if there is only one GPU with 8GB of memory.
+    """
+    num_gpus = torch.cuda.device_count()
+    if num_gpus != 1:
+        return False
+    total_memory = torch.cuda.get_device_properties(0).total_memory
+    gpu_mem_gb = total_memory / 1024**3
+    if gpu_mem_gb > 7 and gpu_mem_gb <= 8:
+        return True
+    else:
+        return False
 
 class Qwen72bModel:
     def __init__(self, args: argparse.Namespace):
@@ -73,11 +55,20 @@ class Qwen72bModel:
 
         self._tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
 
-        self._model = AutoModelForCausalLM.from_pretrained(
-            model_path,
-            device_map="auto",
-            trust_remote_code=True
-        ).eval()
+        if args.model_type == "1.8b" and only_has_one_8gb_gpu():
+            # For 1.8B model, and only one 8GB gpu, we should only use float16 for inferencing
+            self._model = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                device_map="auto",
+                torch_dtype=torch.float16, # Use FP16 for faster inference on GPUs with fp16 support.
+                trust_remote_code=True
+            ).eval()
+        else:
+            self._model = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                device_map="auto",
+                trust_remote_code=True
+            ).eval()
     
     def chat(self, text: str):
         print(f">>>>>>>>>>>>{__file__}: axu_ts={time.time()}")
