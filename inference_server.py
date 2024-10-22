@@ -96,6 +96,9 @@ class Qwen72bModel:
 
 from prompt import text2sql_text 
 def run(model: Qwen72bModel):
+    """
+    Keep this simple demo in case we need to run the model directly.
+    """
     #input_text = "4月27日乘坐火车从郑州到西安；4月27日至29日在西安市住宿两晚。"
     input_text = "4月28日申请北京飞广州的飞机，需要提前一天从石家庄坐高铁赶往北京。"
     prompt = text2sql_text.format(input_text=input_text) 
@@ -111,8 +114,8 @@ glob_model = None
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.get_json()
-    text = data["text"]
-    prompt = text2sql_text.format(input_text=text)
+    prompt = data["text"]
+    #prompt = text2sql_text.format(input_text=text)
 
     start_time = time.time()
     response, _  = glob_model.chat(prompt)
