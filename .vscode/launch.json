@@ -28,6 +28,26 @@
       ],
       "justMyCode": false
     },
+    {
+      "name": "debug http client for ollama",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/tasks/ollama_text_to_json_trip.py",
+      "console": "integratedTerminal",
+      "args": [
+        "--input-file",
+        "data/text_to_jsontrip.txt",
+        "--output-file",
+        "data/ollama-result-of-jsontrip.json",
+        "--batch-size",
+        "1",
+        "--model-name",
+        "qwen2:latest",
+        "--ollama-host",
+        "192.168.11.165"
+      ],
+      "justMyCode": false
+    }
     // --input-file data/text_to_jsontrip.txt   --output-file  data/result-of-jsontrip.json --batch-size 2
     {
       "name": "debug inference_server.py",
