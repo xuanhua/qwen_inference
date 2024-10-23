@@ -5,7 +5,7 @@ from prompt import text2sql_text
 import argparse
 
 # Define the URL of the server endpoint that receives the data
-glob_url = "http://localhost:5000/chat"  # Replace 'localhost' if necessary
+glob_url = "http://localhost:5000/batch_chat"  # Replace 'localhost' if necessary
 
 
 from typing import (
@@ -48,6 +48,7 @@ def get_args():
   parser = argparse.ArgumentParser()
   parser.add_argument("--input-file", type=str, default="", help="The input file path", required=True)
   parser.add_argument("--output-file", type=str, default="", help="The output file path", required=True)
+  parser.add_argument("--batch-size", type=int, default=1, help="Batch size, you can process a group of message once", required=False)
   args = parser.parse_args()
   return args
 
@@ -67,11 +68,14 @@ if __name__ == "__main__":
         continue
       data_list.append(line)
 
-  result_list = []
-  for input_text in data_list:
+  batch_result_list = []
+  for start_idx in range(0, len(data_list), args.batch_size):
+    batch_text = data_list[start_idx: start_idx + args.batch_size]
+    batch_prompt = [text2sql_text.format(input_text=text) for text in batch_text]
 
-    prompt = text2sql_text.format(input_text=input_text) 
-    result_list.append(get_data_from_server(glob_url, {"text": prompt}))
+    batch_result = get_data_from_server(glob_url, {"text": batch_prompt})
+
+    batch_result_list.append(get_data_from_server(glob_url, {"text": batch_prompt}))
 
   with open(args.output_file, 'w', encoding='utf-8') as f:
-    json.dump(result_list, f, ensure_ascii=False, indent=2)
+    json.dump(batch_result_list, f, ensure_ascii=False, indent=2)

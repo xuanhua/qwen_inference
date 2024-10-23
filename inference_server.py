@@ -11,9 +11,12 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from accelerate import infer_auto_device_map
 
+
+from batch_chat import batch_chat as custom_batch_chat
+
 QWEN_72B_INT4_PATH = "/data/hg_models/Qwen-72B-Chat-Int4"
 QWEN_72B_INT8_PATH = "/data/hg_models/Qwen-72B-Chat-Int8"
-QWEN_1_8B_PATH = "/data/hg_models/Qwen-1_8B-Chat"
+QWEN_1_8B_PATH = "/data/hg_models/Qwen_1_8B_Chat"
 
 import argparse
 def set_args():
@@ -53,7 +56,11 @@ class Qwen72bModel:
         else:
             raise ValueError(f"Unknown model type: {args.model_type}")
 
-        self._tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        self._tokenizer = AutoTokenizer.from_pretrained(model_path,
+                                                        trust_remote_code=True,
+                                                        pad_token='<|extra_0|>',
+                                                        eos_token='<|endoftext|>',
+                                                        padding_side='left')
 
         if args.model_type == "1.8b" and only_has_one_8gb_gpu():
             # For 1.8B model, and only one 8GB gpu, we should only use float16 for inferencing
@@ -75,6 +82,14 @@ class Qwen72bModel:
         response, history = self._model.chat(self._tokenizer, text, history=None)
         return response, history
     
+    def batch_chat(self, text:Union[str, List[str]]):
+        print(f">>>>>>>>>>>>{__file__}: axu_ts={time.time()}")
+        response, history = custom_batch_chat(self._model, 
+                                              self._tokenizer, 
+                                              text,
+                                              history=None)
+        return response, history
+
     def batched_generate(self, texts: Union[str, List[str]], batch_size: int = 32):
         """
         Fix this later
@@ -113,6 +128,16 @@ def chat():
     total_secs= time.time() - start_time
     print("Response time: ", total_secs)
     
+    return jsonify({"response": response})
+
+@app.route("/batch_chat", methods=["POST"])
+def batch_chat():
+    data = request.get_json()
+    batch_prompt = data["text"]
+    start_time = time.time()
+    response, _ = glob_model.batch_chat(batch_prompt)
+    print(f"Response time: {time.time() - start_time}")
+
     return jsonify({"response": response})
 
 if __name__ == "__main__":

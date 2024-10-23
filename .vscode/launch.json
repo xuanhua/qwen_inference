@@ -20,7 +20,7 @@
       "console": "integratedTerminal",
       "args":[
         "--model_type",
-        "72b_int4"
+        "1.8b"
       ],
       "justMyCode": false
     },
