@@ -11,12 +11,19 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from accelerate import infer_auto_device_map
 
+from config import (
+    QWEN_1_8B_PATH,
+    QWEN_72B_INT4_PATH,
+    QWEN_72B_INT8_PATH
+)
 
-from batch_chat import batch_chat as custom_batch_chat
+from model_utils import (
+    get_pretrained_tokenizer,
+    get_pretrained_model
+)
 
-QWEN_72B_INT4_PATH = "/data/hg_models/Qwen-72B-Chat-Int4"
-QWEN_72B_INT8_PATH = "/data/hg_models/Qwen-72B-Chat-Int8"
-QWEN_1_8B_PATH = "/data/hg_models/Qwen_1_8B_Chat"
+#from batch_chat import batch_chat as custom_batch_chat
+from batch_chat2 import batch_chat_impl
 
 import argparse
 def set_args():
@@ -30,20 +37,6 @@ def set_args():
     args = parser.parse_args()
     return args
 
-def only_has_one_8gb_gpu():
-    """
-    Check if there is only one GPU with 8GB of memory.
-    """
-    num_gpus = torch.cuda.device_count()
-    if num_gpus != 1:
-        return False
-    total_memory = torch.cuda.get_device_properties(0).total_memory
-    gpu_mem_gb = total_memory / 1024**3
-    if gpu_mem_gb > 7 and gpu_mem_gb <= 8:
-        return True
-    else:
-        return False
-
 class Qwen72bModel:
     def __init__(self, args: argparse.Namespace):
         # Note: The default behavior now has injection attack prevention off.
@@ -56,39 +49,22 @@ class Qwen72bModel:
         else:
             raise ValueError(f"Unknown model type: {args.model_type}")
 
-        self._tokenizer = AutoTokenizer.from_pretrained(model_path,
-                                                        trust_remote_code=True,
-                                                        pad_token='<|extra_0|>',
-                                                        eos_token='<|endoftext|>',
-                                                        padding_side='left')
-
-        if args.model_type == "1.8b" and only_has_one_8gb_gpu():
-            # For 1.8B model, and only one 8GB gpu, we should only use float16 for inferencing
-            self._model = AutoModelForCausalLM.from_pretrained(
-                model_path,
-                device_map="auto",
-                torch_dtype=torch.float16, # Use FP16 for faster inference on GPUs with fp16 support.
-                trust_remote_code=True
-            ).eval()
-        else:
-            self._model = AutoModelForCausalLM.from_pretrained(
-                model_path,
-                device_map="auto",
-                trust_remote_code=True
-            ).eval()
+        self._tokenizer = get_pretrained_tokenizer(model_path) 
+        self._model = get_pretrained_model(model_path, self._tokenizer)
     
     def chat(self, text: str):
+        """
+        """
         print(f">>>>>>>>>>>>{__file__}: axu_ts={time.time()}")
         response, history = self._model.chat(self._tokenizer, text, history=None)
         return response, history
     
     def batch_chat(self, text:Union[str, List[str]]):
         print(f">>>>>>>>>>>>{__file__}: axu_ts={time.time()}")
-        response, history = custom_batch_chat(self._model, 
-                                              self._tokenizer, 
-                                              text,
-                                              history=None)
-        return response, history
+        response, _ = batch_chat_impl(self._model, 
+                                            self._tokenizer, 
+                                            text)
+        return response, None
 
     def batched_generate(self, texts: Union[str, List[str]], batch_size: int = 32):
         """

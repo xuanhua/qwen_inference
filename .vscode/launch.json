@@ -47,7 +47,7 @@
         "192.168.11.165"
       ],
       "justMyCode": false
-    }
+    },
     // --input-file data/text_to_jsontrip.txt   --output-file  data/result-of-jsontrip.json --batch-size 2
     {
       "name": "debug inference_server.py",

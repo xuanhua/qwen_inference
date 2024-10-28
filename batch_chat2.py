@@ -5,11 +5,11 @@ from transformers import GenerationConfig
 #from qwen_generation_utils import make_context, decode_tokens, get_stop_words_ids
 
 from Qwen_1_8B_Chat.qwen_generation_utils import (
-     HistoryType,
-     make_context,
-     decode_tokens,
-     get_stop_words_ids,
-     StopWordsLogitsProcessor
+  HistoryType,
+  make_context,
+  decode_tokens,
+  get_stop_words_ids,
+  StopWordsLogitsProcessor
 )
 
 from config import (
@@ -17,33 +17,33 @@ from config import (
   QWEN_72B_INT4_PATH
 )
 
-pretrained_model_path = QWEN_1_8B_PATH
+#pretrained_model_path = QWEN_1_8B_PATH
 
 # To generate attention masks automatically, it is necessary to assign distinct
 # token_ids to pad_token and eos_token, and set pad_token_id in the generation_config.
-tokenizer = AutoTokenizer.from_pretrained(
-    pretrained_model_path,
-    pad_token='<|extra_0|>',
-    eos_token='<|endoftext|>',
-    padding_side='left',
-    trust_remote_code=True
-)
+#tokenizer = AutoTokenizer.from_pretrained(
+#    pretrained_model_path,
+#    pad_token='<|extra_0|>',
+#    eos_token='<|endoftext|>',
+#    padding_side='left',
+#    trust_remote_code=True
+#)
 
-if pretrained_model_path == QWEN_1_8B_PATH:
-  model = AutoModelForCausalLM.from_pretrained(
-      pretrained_model_path,
-      pad_token_id=tokenizer.pad_token_id,
-      device_map="auto",
-      trust_remote_code=True,
-      torch_dtype=torch.float16, # Use FP16 for faster inference on GPUs with bf16 support.
-  ).eval()
-else:
-  model = AutoModelForCausalLM.from_pretrained(
-                pretrained_model_path,
-                device_map="auto",
-                trust_remote_code=True
-            ).eval()
-model.generation_config = GenerationConfig.from_pretrained(pretrained_model_path, pad_token_id=tokenizer.pad_token_id)
+#if pretrained_model_path == QWEN_1_8B_PATH:
+#  model = AutoModelForCausalLM.from_pretrained(
+#      pretrained_model_path,
+#      pad_token_id=tokenizer.pad_token_id,
+#      device_map="auto",
+#      trust_remote_code=True,
+#      torch_dtype=torch.float16, # Use FP16 for faster inference on GPUs with bf16 support.
+#  ).eval()
+#else:
+#  model = AutoModelForCausalLM.from_pretrained(
+#                pretrained_model_path,
+#                device_map="auto",
+#                trust_remote_code=True
+#            ).eval()
+#model.generation_config = GenerationConfig.from_pretrained(pretrained_model_path, pad_token_id=tokenizer.pad_token_id)
 
 long_input = """
 你是一个行程安排助理，你负责将用户的出行计划的语言描述请求转化为结构化的Json信息，
@@ -190,46 +190,66 @@ long_input = """
 输入：4月28日申请北京飞广州的飞机，需要提前一天从石家庄坐高铁赶往北京。
 输出：
 """
-
-all_raw_text = ["我想听你说爱我。", "今天我想吃点啥，甜甜的，推荐下", "我马上迟到了，怎么做才能不迟到", long_input]
-batch_raw_text = []
-for q in all_raw_text:
-    raw_text, _ = make_context(
-        tokenizer,
-        q,
-        system="You are a helpful assistant.",
-        max_window_size=model.generation_config.max_window_size,
-        chat_format=model.generation_config.chat_format,
-    )
-    batch_raw_text.append(raw_text)
-
-batch_input_ids = tokenizer(batch_raw_text, padding='longest')
-batch_input_ids = torch.LongTensor(batch_input_ids['input_ids']).to(model.device)
-batch_out_ids = model.generate(
-    batch_input_ids,
-    return_dict_in_generate=False,
-    generation_config=model.generation_config
+from typing import (
+  Dict,
+  List,
+  Union
 )
-padding_lens = [batch_input_ids[i].eq(tokenizer.pad_token_id).sum().item() for i in range(batch_input_ids.size(0))]
+from transformers import (
+    AutoTokenizer,
+    AutoModelForCausalLM
+)
 
-batch_response = [
-    decode_tokens(
-        batch_out_ids[i][padding_lens[i]:],
-        tokenizer,
-        raw_text_len=len(batch_raw_text[i]),
-        context_length=(batch_input_ids[i].size(0)-padding_lens[i]),
-        chat_format="chatml",
-        verbose=False,
-        errors='replace'
-    ) for i in range(len(all_raw_text))
-]
-print(batch_response)
+def batch_chat_impl(model: AutoModelForCausalLM,
+               tokenizer: AutoTokenizer, 
+               batch_input: Union[str, List[str]]):
+  """
+  """
+  assert batch_input
+  if isinstance(batch_input, str):
+    batch_input = [batch_input]
 
-#response, _ = model.chat(tokenizer, "我想听你说爱我。", history=None)
-#print(response)
-#
-#response, _ = model.chat(tokenizer, "今天我想吃点啥，甜甜的，推荐下", history=None)
-#print(response)
-#
-#response, _ = model.chat(tokenizer, "我马上迟到了，怎么做才能不迟到", history=None)
-#print(response)
+  #all_raw_text = ["我想听你说爱我。", "今天我想吃点啥，甜甜的，推荐下", "我马上迟到了，怎么做才能不迟到", long_input]
+  batch_raw_text = []
+  for input_text in batch_input:
+      raw_text, _ = make_context(
+          tokenizer,
+          input_text,
+          system="You are a helpful assistant.",
+          max_window_size=model.generation_config.max_window_size,
+          chat_format=model.generation_config.chat_format,
+      )
+      batch_raw_text.append(raw_text)
+
+  batch_input_ids = tokenizer(batch_raw_text, padding='longest')
+  batch_input_ids = torch.LongTensor(batch_input_ids['input_ids']).to(model.device)
+  batch_out_ids = model.generate(
+      batch_input_ids,
+      return_dict_in_generate=False,
+      generation_config=model.generation_config
+  )
+  padding_lens = [batch_input_ids[i].eq(tokenizer.pad_token_id).sum().item() for i in range(batch_input_ids.size(0))]
+
+  batch_response = [
+      decode_tokens(
+          batch_out_ids[i][padding_lens[i]:],
+          tokenizer,
+          raw_text_len=len(batch_raw_text[i]),
+          context_length=(batch_input_ids[i].size(0)-padding_lens[i]),
+          chat_format="chatml",
+          verbose=False,
+          errors='replace'
+      ) for i in range(len(batch_raw_text))
+  ]
+  print(batch_response)
+
+  return batch_response
+
+  #response, _ = model.chat(tokenizer, "我想听你说爱我。", history=None)
+  #print(response)
+  #
+  #response, _ = model.chat(tokenizer, "今天我想吃点啥，甜甜的，推荐下", history=None)
+  #print(response)
+  #
+  #response, _ = model.chat(tokenizer, "我马上迟到了，怎么做才能不迟到", history=None)
+  #print(response)
