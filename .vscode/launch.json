@@ -13,7 +13,23 @@
       "justMyCode": false
     },
     {
-      "name": "debug http client",
+      "name": "comments processing",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/hotel_comments_summary/cluster_comments.py",
+      "console": "integratedTerminal",
+      "args": [
+        "--csv-path",
+        "data/example_hotel_comments.txt",
+        "--column-names",
+        "content",
+        "--num-clusters",
+        "20"
+      ],
+      "justMyCode": false
+    },
+    {
+      "name": "http client",
       "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/tasks/text_to_json_trip.py",
@@ -29,7 +45,7 @@
       "justMyCode": false
     },
     {
-      "name": "debug http client for ollama",
+      "name": "http client for ollama",
       "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/tasks/ollama_text_to_json_trip.py",
