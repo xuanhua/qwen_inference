@@ -31,7 +31,7 @@ def set_args():
     parser.add_argument("--model_type", 
                         type = str, 
                         choices=['72b_int4', '72b_int8', '1.8b'], 
-                        default = "1.8b", 
+                        default = "72b_int4", 
                         help = "Model Type: 72b_int4/72b_int8/1.8b", 
                         required=True)
     args = parser.parse_args()
@@ -61,7 +61,7 @@ class Qwen72bModel:
     
     def batch_chat(self, text:Union[str, List[str]]):
         print(f">>>>>>>>>>>>{__file__}: axu_ts={time.time()}")
-        response, _ = batch_chat_impl(self._model, 
+        response = batch_chat_impl(self._model, 
                                             self._tokenizer, 
                                             text)
         return response, None
@@ -76,11 +76,11 @@ class Qwen72bModel:
         #return response
         pass
 
-from prompt import text2sql_text 
 def run(model: Qwen72bModel):
     """
     Keep this simple demo in case we need to run the model directly.
     """
+    from prompt import text2sql_text 
     #input_text = "4月27日乘坐火车从郑州到西安；4月27日至29日在西安市住宿两晚。"
     input_text = "4月28日申请北京飞广州的飞机，需要提前一天从石家庄坐高铁赶往北京。"
     prompt = text2sql_text.format(input_text=input_text) 
@@ -124,4 +124,4 @@ if __name__ == "__main__":
     #os.environ["CUDA_VISIBLE_DEVICES"] = "1"   
     args = set_args()
     glob_model = Qwen72bModel(args)
-    app.run(port=5000, debug=True, use_reloader=False)
+    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
